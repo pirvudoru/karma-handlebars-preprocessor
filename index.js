@@ -1,8 +1,22 @@
 var handlebars = require('handlebars');
+var path = require('path');
+
+var createTemplateName = function (basePath, parentPath, filePath) {	
+	var extensionRegex = /(\.[a-z]+)+$/;
+	var absolutePath = path.join(basePath, parentPath);
+	var normalizedAbsolutePath = absolutePath.lastIndexOf('/') == absolutePath.length - 1 
+					? absolutePath
+					: absolutePath + '/';
+	var templateName = filePath.replace(normalizedAbsolutePath, '')
+				   .replace(extensionRegex, '');
+	
+	return templateName;
+};
 
 /**
  *  config options:
- *   - transformPath - function that transforms original file path to path of the processed file
+ *   - function that transforms original file path to path of the processed file
+ *   - templatePath - relative path to configured karma basePath
  *   - templateName - function that translates original file path to template name
  *   - templates - name of the variable to store the templates hash
  */
@@ -11,12 +25,13 @@ var createHandlebarsPreprocessor = function(args, config, logger, basePath) {
 
   var log = logger.create('preprocessor.handlebars');
 
-  var transformPath = args.transformPath || config.transformPath || function(filepath) {
-    return filepath.replace(/\.hbs$/, '.js')
+  var templateName = args.templateName || config.templateName || function(filepath) {
+    return filepath.replace(/_(.*)/, '$1');
   };
 
-  var templateName = args.templateName || config.templateName || function(filepath) {
-    return filepath.replace(/^.*\/([^\/]+)\.hbs$/, '$1');
+  var transformPath = args.transformPath || config.transformPath || function (filePath) {
+    var extensionRegex = /(\.[a-z]+)+$/;
+    return filePath.replace(extensionRegex, '.js');
   };
 
   var templates = args.templates || config.templates || "Handlebars.templates";
@@ -25,9 +40,9 @@ var createHandlebarsPreprocessor = function(args, config, logger, basePath) {
     var processed = null;
 
     log.debug('Processing "%s".', file.originalPath);
-    file.path = transformPath(file.originalPath);
 
-    var template = templateName(file.originalPath);
+    file.path = transformPath(file.originalPath);
+    var template = templateName(createTemplateName(basePath, config.templatePath, file.originalPath));
 
     try {
       processed = "(function() {" + templates + " = " + templates + " || {};"
